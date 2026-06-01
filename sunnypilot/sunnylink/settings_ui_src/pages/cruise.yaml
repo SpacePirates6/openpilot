@@ -43,6 +43,27 @@ sections:
       label: Relaxed
     enablement:
     - $ref: '#/macros/longitudinal'
+  - key: ChauffeurStopEnabled
+    widget: toggle
+    title: Chauffeur Stop
+    description: Softens braking below 2 mph to reduce jolt as the car comes to a stop, with grade compensation and learned
+      tuning for hills. Disable for stock-like stopping in tight gaps.
+    visibility:
+    - type: capability
+      field: has_longitudinal_control
+      equals: true
+    enablement:
+    - $ref: '#/macros/longitudinal'
+  - key: ChauffeurStopLearningEnabled
+    widget: toggle
+    title: Chauffeur Stop Learning
+    description: Learn smoother stop tuning from chauffeur-zone stops when you do not override with the brake pedal.
+    visibility:
+    - type: capability
+      field: has_longitudinal_control
+      equals: true
+    enablement:
+    - $ref: '#/macros/longitudinal'
   - key: IntelligentCruiseButtonManagement
     widget: toggle
     title: Intelligent Cruise Button Management (ICBM) (Alpha)

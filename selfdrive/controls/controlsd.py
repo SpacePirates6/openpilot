@@ -131,7 +131,15 @@ class Controls(ControlsExt):
 
     # accel PID loop
     pid_accel_limits = self.CI.get_pid_accel_limits(self.CP, self.CP_SP, CS.vEgo, CS.vCruise * CV.KPH_TO_MS)
-    actuators.accel = float(self.LoC.update(CC.longActive, CS, long_plan.aTarget, long_plan.shouldStop, pid_accel_limits))
+    pitch = 0.0
+    roll = 0.0
+    v_forward = 0.0
+    if self.calibrated_pose is not None:
+      pitch = float(self.calibrated_pose.orientation.pitch)
+      roll = float(self.calibrated_pose.orientation.roll)
+      v_forward = float(self.calibrated_pose.velocity.x)
+    actuators.accel = float(self.LoC.update(CC.longActive, CS, long_plan.aTarget, long_plan.shouldStop, pid_accel_limits,
+                                            pitch, roll, v_forward))
 
     # Steering PID loop and lateral MPC
     # Reset desired curvature to current to avoid violating the limits on engage
