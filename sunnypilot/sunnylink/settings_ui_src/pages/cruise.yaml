@@ -71,6 +71,17 @@ sections:
       equals: true
     enablement:
     - $ref: '#/macros/longitudinal'
+  - key: GasOverrideSmoothEnabled
+    widget: toggle
+    title: Gas Override Smoothing
+    description: Ramps throttle back in after you release the gas pedal during an override, and pauses gas-factor learning
+      so openpilot does not lurch when it resumes control. Useful with a Comma Pedal interceptor.
+    visibility:
+    - type: capability
+      field: has_longitudinal_control
+      equals: true
+    enablement:
+    - $ref: '#/macros/longitudinal'
   - key: IntelligentCruiseButtonManagement
     widget: toggle
     title: Intelligent Cruise Button Management (ICBM) (Alpha)

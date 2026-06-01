@@ -152,6 +152,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"ChauffeurStopEnabled", {PERSISTENT | BACKUP, BOOL, "1"}},
     {"ChauffeurStopLearnedParams", {PERSISTENT | BACKUP, JSON}},
     {"ChauffeurStopLearningEnabled", {PERSISTENT | BACKUP, BOOL, "1"}},
+    {"GasOverrideSmoothEnabled", {PERSISTENT | BACKUP, BOOL, "1"}},
     {"ChevronInfo", {PERSISTENT | BACKUP, INT, "4"}},
     {"CompletedSunnylinkConsentVersion", {PERSISTENT, STRING, "0"}},
     {"CustomAccIncrementsEnabled", {PERSISTENT | BACKUP, BOOL, "0"}},

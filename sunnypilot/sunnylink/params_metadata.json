@@ -190,6 +190,10 @@
     "title": "Chauffeur Stop Learning",
     "description": "Learn smoother stop tuning from chauffeur-zone stops without driver brake override."
   },
+  "GasOverrideSmoothEnabled": {
+    "title": "Gas Override Smoothing",
+    "description": "Smooth throttle handoff after gas-pedal override with a Comma Pedal interceptor."
+  },
   "CompletedSunnylinkConsentVersion": {
     "title": "Completed sunnylink Consent Version",
     "description": ""
