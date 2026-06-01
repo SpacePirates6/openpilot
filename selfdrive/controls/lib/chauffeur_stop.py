@@ -4,7 +4,7 @@ import time
 import numpy as np
 
 from openpilot.common.constants import ACCELERATION_DUE_TO_GRAVITY, CV
-from openpilot.common.params import Params
+from openpilot.common.params import Params, UnknownKeyName
 from openpilot.common.realtime import DT_CTRL
 from openpilot.selfdrive.controls.lib.chauffeur_learned import (
   detect_rollback,
@@ -37,7 +37,10 @@ def is_chauffeur_stop_enabled() -> bool:
   global _params
   if _params is None:
     _params = Params()
-  return _params.get_bool("ChauffeurStopEnabled")
+  try:
+    return _params.get_bool("ChauffeurStopEnabled")
+  except UnknownKeyName:
+    return False
 
 
 def _get_learned_store():
