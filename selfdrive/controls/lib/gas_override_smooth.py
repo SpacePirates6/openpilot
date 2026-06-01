@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 
-from openpilot.common.params import Params
+from openpilot.common.params import Params, UnknownKeyName
 from openpilot.common.realtime import DT_CTRL
 
 # Hold learning and ramp commands after the driver releases the gas pedal.
@@ -23,7 +23,10 @@ def is_gas_override_smooth_enabled() -> bool:
   global _params
   if _params is None:
     _params = Params()
-  return _params.get_bool("GasOverrideSmoothEnabled")
+  try:
+    return _params.get_bool("GasOverrideSmoothEnabled")
+  except UnknownKeyName:
+    return True
 
 
 class GasOverrideSmooth:

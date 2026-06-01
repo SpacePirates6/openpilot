@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass, field
 import numpy as np
 
 from openpilot.common.constants import ACCELERATION_DUE_TO_GRAVITY, CV
-from openpilot.common.params import Params
+from openpilot.common.params import Params, UnknownKeyName
 from openpilot.common.realtime import DT_CTRL
 
 PARAM_KEY = "ChauffeurStopLearnedParams"
@@ -30,9 +30,16 @@ def detect_rollback(v_ego: float, v_forward: float, chauffeur_active: bool) -> b
   return v_ego < ROLLBACK_V_EGO or v_forward < ROLLBACK_V_FORWARD
 
 
+def _safe_get_bool(params: Params, key: str, default: bool = False) -> bool:
+  try:
+    return params.get_bool(key)
+  except UnknownKeyName:
+    return default
+
+
 def is_chauffeur_stop_enabled(params: Params | None = None) -> bool:
   params = params or Params()
-  return params.get_bool(CHAUFFEUR_ENABLED_KEY)
+  return _safe_get_bool(params, CHAUFFEUR_ENABLED_KEY)
 
 PITCH_BOUNDS = [-0.06, -0.02, 0.02, 0.06]
 ROLL_BOUNDS = [-0.015, 0.015]
@@ -107,7 +114,10 @@ def default_store() -> LearnedStore:
 
 def load_store(params: Params | None = None) -> LearnedStore:
   params = params or Params()
-  raw = params.get(PARAM_KEY)
+  try:
+    raw = params.get(PARAM_KEY)
+  except UnknownKeyName:
+    return default_store()
   if raw is None:
     return default_store()
 
@@ -138,7 +148,10 @@ def save_store(store: LearnedStore, params: Params | None = None) -> None:
     "version": store.version,
     "bins": {key: asdict(val) for key, val in store.bins.items()},
   }
-  params.put(PARAM_KEY, json.dumps(payload))
+  try:
+    params.put(PARAM_KEY, json.dumps(payload))
+  except UnknownKeyName:
+    pass
 
 
 def get_bin_params(store: LearnedStore, pitch: float, roll: float) -> BinParams:
@@ -176,7 +189,7 @@ class ChauffeurStopLearner:
     self.persist_counter = 0
 
   def is_learning_enabled(self) -> bool:
-    return self.params.get_bool(LEARNING_ENABLED_KEY)
+    return _safe_get_bool(self.params, LEARNING_ENABLED_KEY)
 
   def reset_episode(self) -> None:
     self.active = False
