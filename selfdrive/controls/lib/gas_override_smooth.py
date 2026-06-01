@@ -33,12 +33,12 @@ class GasOverrideSmooth:
   def __init__(self):
     self.gas_pressed_prev = False
     self.recovery_until = 0.0
-    self.smooth_accel: float | None = None
+    self._smooth_accel: float | None = None
 
   def update(self, gas_pressed: bool) -> None:
     if self.gas_pressed_prev and not gas_pressed:
       self.recovery_until = time.monotonic() + RECOVERY_DURATION
-      self.smooth_accel = None
+      self._smooth_accel = None
     if gas_pressed:
       self.recovery_until = 0.0
     self.gas_pressed_prev = gas_pressed
@@ -59,17 +59,17 @@ class GasOverrideSmooth:
 
   def smooth_accel(self, target_accel: float, a_ego: float) -> float:
     if not self.in_recovery():
-      self.smooth_accel = target_accel
+      self._smooth_accel = target_accel
       return target_accel
 
-    if self.smooth_accel is None:
-      self.smooth_accel = a_ego
+    if self._smooth_accel is None:
+      self._smooth_accel = a_ego
 
     max_up = ACCEL_RAMP_UP * DT_CTRL
     max_down = ACCEL_RAMP_DOWN * DT_CTRL
-    delta = target_accel - self.smooth_accel
+    delta = target_accel - self._smooth_accel
     if delta >= 0.0:
-      self.smooth_accel += min(delta, max_up)
+      self._smooth_accel += min(delta, max_up)
     else:
-      self.smooth_accel += max(delta, -max_down)
-    return float(self.smooth_accel)
+      self._smooth_accel += max(delta, -max_down)
+    return float(self._smooth_accel)

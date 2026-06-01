@@ -24,8 +24,7 @@ class TestGasOverrideSmooth(unittest.TestCase):
     with patch("openpilot.selfdrive.controls.lib.gas_override_smooth.time.monotonic", return_value=0.0):
       smooth.update(True)
       smooth.update(False)
-
-    out = smooth.smooth_accel(2.0, 0.0)
+      out = smooth.smooth_accel(2.0, 0.0)
     self.assertGreater(out, 0.0)
     self.assertLess(out, 2.0)
 
@@ -34,8 +33,7 @@ class TestGasOverrideSmooth(unittest.TestCase):
     with patch("openpilot.selfdrive.controls.lib.gas_override_smooth.time.monotonic", return_value=0.0):
       smooth.update(True)
       smooth.update(False)
-
-    decayed = smooth.decay_gasfactor(2.5)
+      decayed = smooth.decay_gasfactor(2.5)
     self.assertLess(decayed, 2.5)
     self.assertGreater(decayed, 1.0)
 
