@@ -178,6 +178,18 @@
     "title": "Chevron Info",
     "description": ""
   },
+  "ChauffeurStopEnabled": {
+    "title": "Chauffeur Stop",
+    "description": "Softens braking below 2 mph to reduce jolt at standstill. Adjusts for road grade so the car holds on hills."
+  },
+  "ChauffeurStopLearnedParams": {
+    "title": "Chauffeur Stop Learned Params",
+    "description": "Learned per-grade stop tuning from chauffeur stop episodes."
+  },
+  "ChauffeurStopLearningEnabled": {
+    "title": "Chauffeur Stop Learning",
+    "description": "Learn smoother stop tuning from chauffeur-zone stops without driver brake override."
+  },
   "CompletedSunnylinkConsentVersion": {
     "title": "Completed sunnylink Consent Version",
     "description": ""
