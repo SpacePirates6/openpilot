@@ -21,16 +21,19 @@ gh repo fork mvl-boston/openpilot --clone=false 2>$null
 
 # Push opendbc submodule
 Set-Location "$Root\opendbc_repo"
-if (-not (git remote get-url fork 2>$null)) {
+$forkUrl = git remote get-url fork 2>$null
+if (-not $forkUrl) {
   git remote add fork "https://github.com/$GhUser/opendbc.git"
 }
 git push -u fork chauffeur-stop
 
-# Push openpilot
+# Push openpilot (skip LFS upload — objects live on GitLab; code-only branch)
 Set-Location $Root
-if (-not (git remote get-url fork 2>$null)) {
+$forkUrl = git remote get-url fork 2>$null
+if (-not $forkUrl) {
   git remote add fork "https://github.com/$GhUser/openpilot.git"
 }
+$env:GIT_LFS_SKIP_PUSH = "1"
 git push -u fork chauffeur-stop
 
 Write-Host ""
