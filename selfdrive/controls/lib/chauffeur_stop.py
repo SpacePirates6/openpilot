@@ -1,20 +1,17 @@
-import math
 import time
 
 import numpy as np
 
-from openpilot.common.constants import ACCELERATION_DUE_TO_GRAVITY, CV
 from openpilot.common.params import Params, UnknownKeyName
 from openpilot.common.realtime import DT_CTRL
 from openpilot.selfdrive.controls.lib.chauffeur_learned import (
+  CHAUFFEUR_MAX_SPEED,
   detect_rollback,
+  hill_hold_offset,
+  in_chauffeur_zone,
   learned_offsets_for_grade,
   load_store,
 )
-
-# Below 2 mph the car has little kinetic energy left but suspension is still loaded.
-# Taper brake commands here to avoid the final jolt when inertia and spring rebound meet.
-CHAUFFEUR_MAX_SPEED = 2.0 * CV.MPH_TO_MS
 
 DECEL_AT_STOP = -0.12
 DECEL_AT_THRESHOLD = -1.0
@@ -55,14 +52,6 @@ def _get_learned_store():
 def invalidate_learned_cache() -> None:
   global _learned_store_ts
   _learned_store_ts = 0.0
-
-
-def in_chauffeur_zone(v_ego: float) -> bool:
-  return 0.0 <= v_ego < CHAUFFEUR_MAX_SPEED
-
-
-def hill_hold_offset(pitch: float) -> float:
-  return math.sin(pitch) * ACCELERATION_DUE_TO_GRAVITY
 
 
 def rollback_brake_accel(stop_accel: float, accel_min: float) -> float:
@@ -108,7 +97,6 @@ def apply_chauffeur_stop(output_accel: float,
   if detect_rollback(v_ego, v_forward, chauffeur_active or stopping):
     return rollback_brake_accel(stop_accel, accel_min)
 
-  _ = stopping
   if not is_chauffeur_stop_enabled() or not in_chauffeur_zone(v_ego) or output_accel >= 0.0:
     return output_accel
 
