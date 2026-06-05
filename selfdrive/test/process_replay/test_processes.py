@@ -69,7 +69,7 @@ excluded_interfaces = ["mock", "body", "psa"]
 
 BASE_URL = "https://raw.githubusercontent.com/commaai/ci-artifacts/refs/heads/process-replay/"
 REF_COMMIT_FN = os.path.join(PROC_REPLAY_DIR, "ref_commit")
-EXCLUDED_PROCS = {"modeld", "dmonitoringmodeld"}
+EXCLUDED_PROCS = {"modeld", "dmonitoringmodeld", "dmonitoringd"}
 
 
 def run_test_process(data):

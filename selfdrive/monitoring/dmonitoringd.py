@@ -1,48 +1,77 @@
 #!/usr/bin/env python3
+"""Stub driver monitoring: publishes safe defaults without camera or model."""
 import cereal.messaging as messaging
 from openpilot.common.params import Params
-from openpilot.common.realtime import config_realtime_process
-from openpilot.selfdrive.monitoring.policy import DriverMonitoring
+from openpilot.common.realtime import DT_DMON, Ratekeeper, config_realtime_process
+from openpilot.selfdrive.selfdrived.events import Events
+
+
+def _fill_driver_data(data, is_rhd: bool):
+  data.faceOrientation = [0., 0., 0.]
+  data.faceOrientationStd = [0.01, 0.01, 0.01]
+  data.facePosition = [0., 0.]
+  data.facePositionStd = [0.01, 0.01]
+  data.faceProb = 1.0
+  data.eyesVisibleProb = 1.0
+  data.eyesClosedProb = 0.0
+  data.phoneProb = 0.0
+
+
+def _driver_state_packet(frame_id: int, is_rhd: bool):
+  msg = messaging.new_message('driverStateV2', valid=True)
+  ds = msg.driverStateV2
+  ds.frameId = frame_id
+  ds.modelExecutionTime = 0.0
+  ds.gpuExecutionTime = 0.0
+  ds.wheelOnRightProb = 1.0 if is_rhd else 0.0
+  _fill_driver_data(ds.leftDriverData, is_rhd=False)
+  _fill_driver_data(ds.rightDriverData, is_rhd=True)
+  return msg
+
+
+def _monitoring_state_packet(is_rhd: bool):
+  msg = messaging.new_message('driverMonitoringState', valid=True)
+  msg.driverMonitoringState = {
+    "events": Events().to_msg(),
+    "faceDetected": True,
+    "isDistracted": False,
+    "distractedType": 0,
+    "awarenessStatus": 1.0,
+    "posePitchOffset": 0.0,
+    "posePitchValidCount": 0,
+    "poseYawOffset": 0.0,
+    "poseYawValidCount": 0,
+    "stepChange": 0.0,
+    "awarenessActive": 1.0,
+    "awarenessPassive": 1.0,
+    "isLowStd": True,
+    "hiStdCount": 0,
+    "isActiveMode": True,
+    "isRHD": is_rhd,
+    "uncertainCount": 0,
+  }
+  return msg
 
 
 def dmonitoringd_thread():
   config_realtime_process([0, 1, 2, 3], 5)
 
   params = Params()
-  pm = messaging.PubMaster(['driverMonitoringState'])
-  sm = messaging.SubMaster(['driverStateV2', 'liveCalibration', 'carState', 'selfdriveState', 'modelV2',
-                            'carControl'], poll='driverStateV2')
+  # Clear lockout from a previous drive with real DM enabled.
+  if params.get_bool("DriverTooDistracted"):
+    params.put_bool("DriverTooDistracted", False)
 
-  DM = DriverMonitoring(rhd_saved=params.get_bool("IsRhdDetected"), always_on=params.get_bool("AlwaysOnDM"))
-  demo_mode=False
+  pm = messaging.PubMaster(['driverMonitoringState', 'driverStateV2'])
+  rk = Ratekeeper(1. / DT_DMON, print_delay_threshold=None)
+  frame_id = 0
 
-  # 20Hz <- dmonitoringmodeld
   while True:
-    sm.update()
-    if not sm.updated['driverStateV2']:
-      # iterate when model has new output
-      continue
+    is_rhd = params.get_bool("IsRhdDetected")
+    pm.send('driverMonitoringState', _monitoring_state_packet(is_rhd))
+    pm.send('driverStateV2', _driver_state_packet(frame_id, is_rhd))
+    frame_id += 1
+    rk.keep_time()
 
-    valid = sm.all_checks()
-    if demo_mode and sm.valid['driverStateV2']:
-      DM.run_step(sm, demo=True)
-    elif valid:
-      DM.run_step(sm, demo=demo_mode)
-
-    # publish
-    dat = DM.get_state_packet(valid=valid)
-    pm.send('driverMonitoringState', dat)
-
-    # load live always-on toggle
-    if sm['driverStateV2'].frameId % 40 == 1:
-      DM.always_on = params.get_bool("AlwaysOnDM")
-      demo_mode = params.get_bool("IsDriverViewEnabled")
-
-    # save rhd virtual toggle every 5 mins
-    if (sm['driverStateV2'].frameId % 6000 == 0 and not demo_mode and
-     DM.wheelpos_offsetter.filtered_stat.n > DM.settings._WHEELPOS_FILTER_MIN_COUNT and
-     DM.wheel_on_right == (DM.wheelpos_offsetter.filtered_stat.M > DM.settings._WHEELPOS_THRESHOLD)):
-      params.put_bool("IsRhdDetected", DM.wheel_on_right)
 
 def main():
   dmonitoringd_thread()

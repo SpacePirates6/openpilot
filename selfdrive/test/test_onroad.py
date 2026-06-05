@@ -46,7 +46,6 @@ PROCS = {
   "system.sensord.sensord": 13.0,
   "selfdrive.controls.radard": 2.0,
   "selfdrive.modeld.modeld": 22.0,
-  "selfdrive.modeld.dmonitoringmodeld": 18.0,
   "system.hardware.hardwared": 4.0,
   "selfdrive.locationd.calibrationd": 2.0,
   "selfdrive.locationd.torqued": 5.0,
@@ -55,7 +54,7 @@ PROCS = {
   "selfdrive.locationd.lagd": 11.0,
   "selfdrive.ui.soundd": 3.0,
   "selfdrive.ui.feedback.feedbackd": 1.0,
-  "selfdrive.monitoring.dmonitoringd": 4.0,
+  "selfdrive.monitoring.dmonitoringd": 2.0,
   "system.proclogd": 7.0,
   "system.logmessaged": 1.0,
   "system.tombstoned": 0,
@@ -83,7 +82,6 @@ TIMINGS = {
   "longitudinalPlan": [2.5, 0.5],
   "driverAssistance": [2.5, 0.5],
   "roadCameraState": [2.5, 0.35],
-  "driverCameraState": [2.5, 0.35],
   "modelV2": [2.5, 0.35],
   "driverStateV2": [2.5, 0.40],
   "livePose": [2.5, 0.35],
@@ -303,7 +301,7 @@ class TestOnroad:
     result += "------------------------------------------------\n"
     result += "-----------------  SOF Timing ------------------\n"
     result += "------------------------------------------------\n"
-    for name in ['roadCameraState', 'wideRoadCameraState', 'driverCameraState']:
+    for name in ['roadCameraState', 'wideRoadCameraState']:
       ts = self.ts[name]['timestampSof']
       d_ms = np.diff(ts) / 1e6
       d50 = np.abs(d_ms-50)
@@ -316,8 +314,8 @@ class TestOnroad:
     print(result)
 
   def test_camera_sync(self, subtests):
-    cam_states = ['roadCameraState', 'wideRoadCameraState', 'driverCameraState']
-    encode_cams = ['roadEncodeIdx', 'wideRoadEncodeIdx', 'driverEncodeIdx']
+    cam_states = ['roadCameraState', 'wideRoadCameraState']
+    encode_cams = ['roadEncodeIdx', 'wideRoadEncodeIdx']
     for cams in (cam_states, encode_cams):
       with subtests.test(cams=cams):
         # sanity checks within a single cam
@@ -343,20 +341,15 @@ class TestOnroad:
 
         start, end = min(first_fid), min(last_fid)
         for i in range(end-start):
-          # road and wide cameras (first two) should be synced within 2ms
-          ts = {c: round(self.ts[c]['timestampSof'][i]/1e6, 1) for c in cams[:2]}
+          # road and wide cameras should be synced within 2ms
+          ts = {c: round(self.ts[c]['timestampSof'][i]/1e6, 1) for c in cams}
           diff = (max(ts.values()) - min(ts.values()))
           assert diff < 2, f"Cameras not synced properly: frame_id={start+i}, {diff=:.1f}ms, {ts=}"
-
-          # driver camera should be staggered ~25ms from road camera
-          offset_ms = abs(self.ts[cams[2]]['timestampSof'][i] - self.ts[cams[0]]['timestampSof'][i]) / 1e6
-          assert 20 < offset_ms < 30, f"driver camera stagger out of range at frame {start+i}: {offset_ms:.1f}ms"
 
   def test_camera_encoder_matches(self, subtests):
     # sanity check that the frame metadata is consistent with the encoded frames
     pairs = [('roadCameraState', 'roadEncodeIdx'),
-             ('wideRoadCameraState', 'wideRoadEncodeIdx'),
-             ('driverCameraState', 'driverEncodeIdx')]
+             ('wideRoadCameraState', 'wideRoadEncodeIdx')]
     for cam, enc in pairs:
       with subtests.test(camera=cam, encoder=enc):
         cam_frames = {fid: (sof, eof) for fid, sof, eof in zip(

@@ -259,7 +259,7 @@ def main(demo=False):
 
     sm.update(0)
     desire = DH.desire
-    is_rhd = sm["driverMonitoringState"].isRHD
+    is_rhd = sm["driverMonitoringState"].isRHD if sm.alive["driverMonitoringState"] else params.get_bool("IsRhdDetected")
     frame_id = sm["roadCameraState"].frameId
     v_ego = max(sm["carState"].vEgo, 0.)
     if sm.frame % 60 == 0:

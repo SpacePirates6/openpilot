@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
   HARDWARE.set_power_save(False)
 
-  procs = ['camerad', 'ui', 'calibrationd', 'plannerd', 'dmonitoringmodeld', 'dmonitoringd']
+  procs = ['camerad', 'ui', 'calibrationd', 'plannerd', 'dmonitoringd']
   procs += ["modeld_tinygrad" if use_tinygrad_modeld else "modeld"]
   for p in procs:
     managed_processes[p].start()
