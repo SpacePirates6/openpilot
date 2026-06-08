@@ -263,10 +263,11 @@ class TrainingGuide(NavWidget):
   def __init__(self, completed_callback: Callable[[], None]):
     super().__init__()
 
+    # Interior-camera test steps (PreDMTutorial/DMTutorial) removed: the driver
+    # camera is disabled, so the live face-detection check can never complete and
+    # would otherwise block onboarding. Terms and the attention notice are kept.
     self._steps = [
       TrainingGuideAttentionNotice(continue_callback=lambda: gui_app.push_widget(self._steps[1])),
-      TrainingGuidePreDMTutorial(continue_callback=lambda: gui_app.push_widget(self._steps[2])),
-      TrainingGuideDMTutorial(continue_callback=lambda: gui_app.push_widget(self._steps[3])),
       TrainingGuideRecordFront(continue_callback=completed_callback),
     ]
 
