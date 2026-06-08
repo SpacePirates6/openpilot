@@ -102,11 +102,10 @@ class CarSpecificEvents:
     # so only use it for cancel when running openpilot longitudinal
     allow_button_cancel = self.CP.brand != 'hyundai'
 
-    if CS.doorOpen:
-      events.add(EventName.doorOpen)
-    if CS.seatbeltUnlatched:
-      events.add(EventName.seatbeltNotLatched)
-    if CS.gearShifter != GearShifter.drive and CS.gearShifter not in CI.DRIVABLE_GEARS:
+    # Driver-responsibility interlocks intentionally disabled: door open,
+    # seatbelt unlatched, and neutral gear no longer trigger disengagement.
+    if CS.gearShifter != GearShifter.drive and CS.gearShifter != GearShifter.neutral \
+       and CS.gearShifter not in CI.DRIVABLE_GEARS:
       events.add(EventName.wrongGear)
     if CS.gearShifter == GearShifter.reverse:
       events.add(EventName.reverseGear)
