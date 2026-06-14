@@ -11,6 +11,8 @@ GearShifter = structs.CarState.GearShifter
 EventName = log.OnroadEvent.EventName
 NetworkLocation = structs.CarParams.NetworkLocation
 
+BRAKE_ENGAGE_MAX_SPEED = 4.5  # ~10 mph — allow cruise engage while braking below this
+
 
 class CarSpecificEvents:
   def __init__(self, CP: structs.CarParams):
@@ -135,7 +137,7 @@ class CarSpecificEvents:
       events.add(EventName.steerOverride)
     if CS.steeringDisengage and not CS_prev.steeringDisengage:
       events.add(EventName.steerDisengage)
-    if CS.brakePressed and CS.standstill:
+    if CS.brakePressed and CS.standstill and CS.vEgo >= BRAKE_ENGAGE_MAX_SPEED:
       events.add(EventName.preEnableStandstill)
     if CS.gasPressed:
       events.add(EventName.gasPressedOverride)

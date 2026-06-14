@@ -109,11 +109,21 @@ class LongControl:
       self.reset()
 
     else:  # LongCtrlState.pid
-      error = a_target - CS.aEgo
-      output_accel = self.pid.update(error, speed=CS.vEgo,
-                                     feedforward=a_target)
-      if is_chauffeur_stop_enabled() and in_chauffeur_zone(CS.vEgo) and output_accel < 0.0:
-        output_accel = self._apply_chauffeur(output_accel, CS, pitch, roll, v_forward, accel_limits)
+      if CS.gasPressed:
+        # Driver is on the gas — track their actual accel instead of integrating
+        # speed error that builds while the car ignores openpilot commands.
+        self.pid.reset()
+        output_accel = float(CS.aEgo)
+      else:
+        error = a_target - CS.aEgo
+        output_accel = self.pid.update(error, speed=CS.vEgo,
+                                       feedforward=a_target)
+        if is_chauffeur_stop_enabled() and in_chauffeur_zone(CS.vEgo) and output_accel < 0.0:
+          output_accel = self._apply_chauffeur(output_accel, CS, pitch, roll, v_forward, accel_limits)
+
+    # Hard safety: zero positive accel while driver is braking, no exceptions.
+    if CS.brakePressed:
+      output_accel = min(output_accel, 0.0)
 
     self.last_output_accel = np.clip(output_accel, accel_limits[0], accel_limits[1])
     return self.last_output_accel
