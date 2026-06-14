@@ -56,6 +56,13 @@ def _pack_policy_npy(shapes_ordered):
   return packed, views, cumulative
 
 
+def _unpack_packed_policy(packed, policy_npy_shapes):
+  """Unpack a packed policy tensor back into shaped inputs."""
+  sizes = [math.prod(s) for s in policy_npy_shapes.values()]
+  return {k: t.reshape(s) for k, s, t in zip(policy_npy_shapes.keys(), policy_npy_shapes.values(),
+                                             packed.split(sizes), strict=True)}
+
+
 def make_split_input_queues(vision_input_shapes, policy_input_shapes, frame_skip, device):
   road_key, _ = _detect_vision_keys(vision_input_shapes)
   img = vision_input_shapes[road_key]
@@ -102,20 +109,15 @@ def make_run_split_policy(vision_runner, policy_runner, nv12: NV12Frame, model_w
   sample_skip_fn = partial(sample_skip, frame_skip=frame_skip)
   sample_desire_fn = partial(sample_desire, frame_skip=frame_skip)
 
-  policy_sizes = [math.prod(s) for s in policy_npy_shapes.values()]
-  policy_cumulative = list(np.cumsum([0] + policy_sizes))
-  policy_keys_list = list(policy_npy_shapes.keys())
-  desire_idx = policy_keys_list.index('desire')
-  tc_idx = policy_keys_list.index('traffic_convention')
-
   def run_policy(img_q, big_img_q, feat_q, desire_q, packed_policy_npy, tfm, big_tfm, frame, big_frame):
     tfm = tfm.to(Device.DEFAULT)
     big_tfm = big_tfm.to(Device.DEFAULT)
     packed = packed_policy_npy.to(Device.DEFAULT)
     Tensor.realize(tfm, big_tfm, packed)
 
-    desire = packed[policy_cumulative[desire_idx]:policy_cumulative[desire_idx + 1]]
-    traffic_convention = packed[policy_cumulative[tc_idx]:policy_cumulative[tc_idx + 1]]
+    unpacked = _unpack_packed_policy(packed, policy_npy_shapes)
+    desire = unpacked['desire']
+    traffic_convention = unpacked['traffic_convention']
 
     img = shift_and_sample(img_q, frame_prepare(frame, tfm).unsqueeze(0), sample_skip_fn)
     big_img = shift_and_sample(big_img_q, frame_prepare(big_frame, big_tfm).unsqueeze(0), sample_skip_fn)
@@ -130,10 +132,10 @@ def make_run_split_policy(vision_runner, policy_runner, nv12: NV12Frame, model_w
     desire_buf = shift_and_sample(desire_q, desire.reshape(1, 1, -1), sample_desire_fn)
 
     inputs = {'features_buffer': feat_buf, desire_key: desire_buf, 'traffic_convention': traffic_convention}
-    for i, k in enumerate(policy_keys_list):
+    for k, v in unpacked.items():
       if k in ('desire', 'traffic_convention'):
         continue
-      inputs[k] = packed[policy_cumulative[i]:policy_cumulative[i + 1]].reshape(1, -1)
+      inputs[k] = v
     policy_out = next(iter(policy_runner(inputs).values())).cast('float32')
 
     return vision_out, policy_out
@@ -281,12 +283,6 @@ def make_run_supercombo(model_runner, nv12: NV12Frame, model_w, model_h,
     raise ValueError(f"No desire* key found in input_shapes: {list(input_shapes.keys())}")
   road_img_key, wide_img_key = _detect_vision_keys(input_shapes)
 
-  policy_sizes = [math.prod(s) for s in policy_npy_shapes.values()]
-  policy_cumulative = list(np.cumsum([0] + policy_sizes))
-  policy_keys_list = list(policy_npy_shapes.keys())
-  desire_idx = policy_keys_list.index(desire_key)
-  tc_idx = policy_keys_list.index('traffic_convention')
-
   def run_supercombo(img_q, big_img_q, feat_q, desire_q, packed_policy_npy, tfm, big_tfm, frame, big_frame):
     tfm = tfm.to(Device.DEFAULT)
     big_tfm = big_tfm.to(Device.DEFAULT)
@@ -299,18 +295,19 @@ def make_run_supercombo(model_runner, nv12: NV12Frame, model_w, model_h,
     if prepare_only:
       return img, big_img
 
-    desire = packed[policy_cumulative[desire_idx]:policy_cumulative[desire_idx + 1]]
-    traffic_convention = packed[policy_cumulative[tc_idx]:policy_cumulative[tc_idx + 1]]
+    unpacked = _unpack_packed_policy(packed, policy_npy_shapes)
+    desire = unpacked[desire_key]
+    traffic_convention = unpacked['traffic_convention']
     desire_buf = shift_and_sample(desire_q, desire.reshape(1, 1, -1), sample_desire_fn)
     feat_buf = sample_skip_fn(feat_q)
 
     inputs = {road_img_key: img, wide_img_key: big_img,
               desire_key: desire_buf, 'features_buffer': feat_buf,
               'traffic_convention': traffic_convention}
-    for i, k in enumerate(policy_keys_list):
+    for k, v in unpacked.items():
       if k in (desire_key, 'traffic_convention'):
         continue
-      inputs[k] = packed[policy_cumulative[i]:policy_cumulative[i + 1]].reshape(1, -1)
+      inputs[k] = v
 
     model_out = next(iter(model_runner(inputs).values())).cast('float32')
 
@@ -329,20 +326,15 @@ def make_run_vision_multi_policy(vision_runner, policy_runners, nv12: NV12Frame,
   sample_skip_fn = partial(sample_skip, frame_skip=frame_skip)
   sample_desire_fn = partial(sample_desire, frame_skip=frame_skip)
 
-  policy_sizes = [math.prod(s) for s in policy_npy_shapes.values()]
-  policy_cumulative = list(np.cumsum([0] + policy_sizes))
-  policy_keys_list = list(policy_npy_shapes.keys())
-  desire_idx = policy_keys_list.index('desire')
-  tc_idx = policy_keys_list.index('traffic_convention')
-
   def run_multi_policy(img_q, big_img_q, feat_q, desire_q, packed_policy_npy, tfm, big_tfm, frame, big_frame):
     tfm = tfm.to(Device.DEFAULT)
     big_tfm = big_tfm.to(Device.DEFAULT)
     packed = packed_policy_npy.to(Device.DEFAULT)
     Tensor.realize(tfm, big_tfm, packed)
 
-    desire = packed[policy_cumulative[desire_idx]:policy_cumulative[desire_idx + 1]]
-    traffic_convention = packed[policy_cumulative[tc_idx]:policy_cumulative[tc_idx + 1]]
+    unpacked = _unpack_packed_policy(packed, policy_npy_shapes)
+    desire = unpacked['desire']
+    traffic_convention = unpacked['traffic_convention']
 
     img = shift_and_sample(img_q, frame_prepare(frame, tfm).unsqueeze(0), sample_skip_fn)
     big_img = shift_and_sample(big_img_q, frame_prepare(big_frame, big_tfm).unsqueeze(0), sample_skip_fn)
@@ -357,10 +349,10 @@ def make_run_vision_multi_policy(vision_runner, policy_runners, nv12: NV12Frame,
     desire_buf = shift_and_sample(desire_q, desire.reshape(1, 1, -1), sample_desire_fn)
 
     inputs = {'features_buffer': feat_buf, desire_key: desire_buf, 'traffic_convention': traffic_convention}
-    for i, k in enumerate(policy_keys_list):
+    for k, v in unpacked.items():
       if k in ('desire', 'traffic_convention'):
         continue
-      inputs[k] = packed[policy_cumulative[i]:policy_cumulative[i + 1]].reshape(1, -1)
+      inputs[k] = v
 
     policy_outputs = []
     for runner in policy_runners:

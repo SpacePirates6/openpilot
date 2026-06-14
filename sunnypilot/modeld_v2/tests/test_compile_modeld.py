@@ -5,10 +5,63 @@ This file is part of sunnypilot and is licensed under the MIT License.
 See the LICENSE.md file in the root directory for more details.
 """
 
+import math
 import numpy as np
 import pytest
 
-from openpilot.sunnypilot.modeld_v2.compile_modeld import derive_frame_skip, _detect_desire_key
+from openpilot.sunnypilot.modeld_v2.compile_modeld import (
+  derive_frame_skip, _detect_desire_key, _pack_policy_npy,
+  make_split_input_queues, make_supercombo_input_queues,
+)
+from openpilot.sunnypilot.modeld_v2.tests.conftest import (
+  SPLIT_VISION_INPUT_SHAPES, SPLIT_POLICY_INPUT_SHAPES, SUPERCOMBO_INPUT_SHAPES,
+)
+
+
+class TestPackPolicyNpy:
+  def test_views_share_packed_memory(self):
+    shapes = {'desire': (8,), 'traffic_convention': (1, 2), 'lateral_control_params': (1, 2)}
+    packed, views, _ = _pack_policy_npy(shapes)
+    views['desire'][0] = 42.0
+    assert packed[0] == 42.0
+
+  def test_unpack_shapes_match_original(self):
+    shapes = {
+      'desire': (8,),
+      'traffic_convention': (1, 2),
+      'prev_desired_curv': (1, 100, 1),
+      'lateral_control_params': (1, 2),
+    }
+    packed, views, _ = _pack_policy_npy(shapes)
+    for k, shape in shapes.items():
+      views[k][:] = np.random.randn(*shape).astype(np.float32)
+
+    sizes = [math.prod(s) for s in shapes.values()]
+    parts = np.split(packed, np.cumsum(sizes[:-1]))
+    unpacked = {k: p.reshape(s) for k, s, p in zip(shapes.keys(), shapes.values(), parts, strict=True)}
+    for k in shapes:
+      np.testing.assert_array_equal(unpacked[k], views[k])
+
+
+class TestInputQueues:
+  def test_split_queue_keys(self):
+    frame_skip = derive_frame_skip(SPLIT_VISION_INPUT_SHAPES, SPLIT_POLICY_INPUT_SHAPES)
+    queues, npy = make_split_input_queues(SPLIT_VISION_INPUT_SHAPES, SPLIT_POLICY_INPUT_SHAPES,
+                                          frame_skip, device='NPY')
+    assert 'packed_policy_npy' in queues
+    assert 'desire' in npy
+    assert 'traffic_convention' in npy
+    assert np.shares_memory(queues['packed_policy_npy'].numpy(), npy['desire'])
+
+  def test_supercombo_queue_keys(self):
+    frame_skip = derive_frame_skip({}, SUPERCOMBO_INPUT_SHAPES)
+    queues, npy = make_supercombo_input_queues(SUPERCOMBO_INPUT_SHAPES, frame_skip, device='NPY')
+    assert 'packed_policy_npy' in queues
+    assert 'desire' in npy
+    assert 'lateral_control_params' in npy
+    assert 'prev_desired_curv' in npy
+    assert npy['prev_desired_curv'].shape == (1, 100, 1)
+    assert np.shares_memory(queues['packed_policy_npy'].numpy(), npy['lateral_control_params'])
 
 
 class TestDeriveFrameSkip:
