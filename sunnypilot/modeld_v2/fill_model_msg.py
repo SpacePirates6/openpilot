@@ -66,7 +66,20 @@ def fill_lane_line_meta(builder, lane_lines, lane_line_probs):
   builder.rightY = lane_lines[2].y[0]
   builder.rightProb = lane_line_probs[2]
 
-def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._DynamicStructBuilder,
+def fill_driving_model_data(msg: capnp._DynamicStructBuilder, modelv2_send: capnp._DynamicStructBuilder) -> None:
+  """Derive drivingModelData from the already-filled modelV2 message to avoid redundant computation."""
+  msg.valid = modelv2_send.valid
+  modelV2 = modelv2_send.modelV2
+  driving_model_data = msg.drivingModelData
+  driving_model_data.frameId = modelV2.frameId
+  driving_model_data.frameIdExtra = modelV2.frameIdExtra
+  driving_model_data.frameDropPerc = modelV2.frameDropPerc
+  driving_model_data.modelExecutionTime = modelV2.modelExecutionTime
+  driving_model_data.action = modelV2.action
+  fill_lane_line_meta(driving_model_data.laneLineMeta, modelV2.laneLines, modelV2.laneLineProbs)
+  fill_xyz_poly(driving_model_data.path, ModelConstants.POLY_PATH_DEGREE, modelV2.position.x, modelV2.position.y, modelV2.position.z)
+
+def fill_model_msg(extended_msg: capnp._DynamicStructBuilder,
                    net_output_data: dict[str, np.ndarray], action: log.ModelDataV2.Action,
                    publish_state: PublishState, vipc_frame_id: int, vipc_frame_id_extra: int,
                    frame_id: int, frame_drop: float, timestamp_eof: int, model_execution_time: float,
@@ -74,15 +87,6 @@ def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._D
   frame_age = frame_id - vipc_frame_id if frame_id > vipc_frame_id else 0
   frame_drop_perc = frame_drop * 100
   extended_msg.valid = valid
-  base_msg.valid = valid
-
-  driving_model_data = base_msg.drivingModelData
-
-  driving_model_data.frameId = vipc_frame_id
-  driving_model_data.frameIdExtra = vipc_frame_id_extra
-  driving_model_data.frameDropPerc = frame_drop_perc
-  driving_model_data.modelExecutionTime = model_execution_time
-  driving_model_data.action = action
 
   modelV2 = extended_msg.modelV2
   modelV2.frameId = vipc_frame_id
@@ -112,9 +116,6 @@ def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._D
     temporal_pose.rot = net_output_data['plan'][0,0,Plan.ORIENTATION_RATE].tolist()
     temporal_pose.rotStd = net_output_data['plan_stds'][0,0,Plan.ORIENTATION_RATE].tolist()
 
-  # poly path
-  fill_xyz_poly(driving_model_data.path, ModelConstants.POLY_PATH_DEGREE, *net_output_data['plan'][0,:,Plan.POSITION].T)
-
   # action (includes lateral planning now)
   modelV2.action = action
 
@@ -128,8 +129,6 @@ def fill_model_msg(base_msg: capnp._DynamicStructBuilder, extended_msg: capnp._D
     fill_xyzt(lane_line, LINE_T_IDXS, np.array(ModelConstants.X_IDXS), net_output_data['lane_lines'][0,i,:,0], net_output_data['lane_lines'][0,i,:,1])
   modelV2.laneLineStds = net_output_data['lane_lines_stds'][0,:,0,0].tolist()
   modelV2.laneLineProbs = net_output_data['lane_lines_prob'][0,1::2].tolist()
-
-  fill_lane_line_meta(driving_model_data.laneLineMeta, modelV2.laneLines, modelV2.laneLineProbs)
 
   # road edges
   modelV2.init('roadEdges', 2)

@@ -61,21 +61,18 @@ class TestModelStateCombinedInit:
 class TestStockEquivalence:
 
   def test_split_queue_keys_match_stock(self, model_state_factory):
-    from openpilot.selfdrive.modeld.compile_modeld import make_input_queues
-    from openpilot.sunnypilot.modeld_v2.compile_modeld import derive_frame_skip
+    from openpilot.sunnypilot.modeld_v2.compile_modeld import derive_frame_skip, make_split_input_queues
 
     state = model_state_factory(ARCHETYPES['vision_policy_split'])
 
     frame_skip = derive_frame_skip(SPLIT_VISION_INPUT_SHAPES, SPLIT_POLICY_INPUT_SHAPES)
-    stock_queues, stock_npy = make_input_queues(SPLIT_VISION_INPUT_SHAPES, SPLIT_POLICY_INPUT_SHAPES, frame_skip,
+    expected_queues, expected_npy = make_split_input_queues(SPLIT_VISION_INPUT_SHAPES, SPLIT_POLICY_INPUT_SHAPES, frame_skip,
                                                 device='NPY')
 
-    # TODO-SP: remove action_t skip once SP adds prerequisite for deep models (action_t input queue)
-    skip_keys = {'action_t'}
-    assert set(state.input_queues.keys()) == set(stock_queues.keys()) - skip_keys, \
-      f"Queue keys differ: v2={set(state.input_queues.keys())}, stock={set(stock_queues.keys())}"
-    assert set(state.numpy_inputs.keys()) == set(stock_npy.keys()) - skip_keys, \
-      f"Npy keys differ: v2={set(state.numpy_inputs.keys())}, stock={set(stock_npy.keys())}"
+    assert set(state.input_queues.keys()) == set(expected_queues.keys()), \
+      f"Queue keys differ: v2={set(state.input_queues.keys())}, expected={set(expected_queues.keys())}"
+    assert set(state.numpy_inputs.keys()) == set(expected_npy.keys()), \
+      f"Npy keys differ: v2={set(state.numpy_inputs.keys())}, expected={set(expected_npy.keys())}"
 
   def test_split_queue_keys_work_with_desire_key(self, model_state_factory):
     from openpilot.sunnypilot.modeld_v2.compile_modeld import derive_frame_skip, make_split_input_queues
@@ -85,6 +82,7 @@ class TestStockEquivalence:
     queues, npy = make_split_input_queues(SPLIT_VISION_INPUT_SHAPES, policy_shapes_desire, frame_skip, device='NPY')
 
     assert 'desire_q' in queues
+    assert 'packed_policy_npy' in queues
     assert 'desire' in npy
     assert 'img_q' in queues
     assert 'feat_q' in queues
