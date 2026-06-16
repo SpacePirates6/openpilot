@@ -478,6 +478,23 @@
           ]
         },
         {
+          "id": "lane_position",
+          "title": "Lane Position",
+          "description": "Fine-tune where the car sits within the lane",
+          "items": [
+            {
+              "key": "CameraOffset",
+              "widget": "option",
+              "title": "Lane Position Offset",
+              "description": "Shift the driving line within the lane. Positive moves left; negative moves right. If you sit too close to the yellow line, try about -0.15 m (~6 in / half a foot).",
+              "min": -0.35,
+              "max": 0.35,
+              "step": 0.01,
+              "unit": "meters"
+            }
+          ]
+        },
+        {
           "id": "lane_change",
           "title": "Lane Change",
           "description": "Automatic lane change timing and behavior",
@@ -624,27 +641,7 @@
               "key": "ChauffeurStopEnabled",
               "widget": "toggle",
               "title": "Chauffeur Stop",
-              "description": "Softens braking below 2 mph to reduce jolt as the car comes to a stop, with grade compensation and learned tuning for hills. Disable for stock-like stopping in tight gaps.",
-              "visibility": [
-                {
-                  "type": "capability",
-                  "field": "has_longitudinal_control",
-                  "equals": true
-                }
-              ],
-              "enablement": [
-                {
-                  "type": "capability",
-                  "field": "has_longitudinal_control",
-                  "equals": true
-                }
-              ]
-            },
-            {
-              "key": "ChauffeurStopLearningEnabled",
-              "widget": "toggle",
-              "title": "Chauffeur Stop Learning",
-              "description": "Learn smoother stop tuning from chauffeur-zone stops when you do not override with the brake pedal.",
+              "description": "Softens braking below 2 mph to reduce jolt as the car comes to a stop, with grade compensation for hills. Disable for stock-like stopping in tight gaps.",
               "visibility": [
                 {
                   "type": "capability",

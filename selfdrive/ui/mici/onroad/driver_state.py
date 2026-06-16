@@ -3,10 +3,9 @@ from dataclasses import dataclass
 
 from cereal import car
 from openpilot.selfdrive.ui.ui_state import ui_state
-from openpilot.system.ui.lib.application import gui_app
+from openpilot.system.ui.lib.application import FontWeight, gui_app
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.widgets import Widget
-from openpilot.system.ui.lib.multilang import FontWeight
 
 # Gear indicator replaces driver monitor circle (same position/size as DM widget)
 BG_SIZE = 120
@@ -32,7 +31,7 @@ class DriverStateRenderer(Widget):
     self.set_rect(rl.Rectangle(0, 0, BG_SIZE, BG_SIZE))
     self._inset = inset
     self._lines = lines
-    self._is_rhd = ui_state.is_rhd
+    self._is_rhd = ui_state.params.get_bool("IsRhdDetected")
     self._should_draw = True
     self._force_active = False
     self._gear_data = GearData()
@@ -68,6 +67,9 @@ class DriverStateRenderer(Widget):
     return "-"
 
   def _update_state(self):
+    if ui_state.sm.alive['driverMonitoringState']:
+      self._is_rhd = ui_state.sm['driverMonitoringState'].isRHD
+
     if not ui_state.started:
       return
 

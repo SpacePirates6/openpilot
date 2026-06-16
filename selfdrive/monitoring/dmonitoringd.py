@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Stub driver monitoring: publishes safe defaults without camera or model."""
 import cereal.messaging as messaging
+from cereal import log
 from openpilot.common.params import Params
 from openpilot.common.realtime import DT_DMON, Ratekeeper, config_realtime_process
-from openpilot.selfdrive.selfdrived.events import Events
+
+AlertLevel = log.DriverMonitoringState.AlertLevel
+MonitoringPolicy = log.DriverMonitoringState.MonitoringPolicy
 
 
 def _fill_driver_data(data, is_rhd: bool):
@@ -31,33 +34,28 @@ def _driver_state_packet(frame_id: int, is_rhd: bool):
 
 def _monitoring_state_packet(is_rhd: bool):
   msg = messaging.new_message('driverMonitoringState', valid=True)
-  msg.driverMonitoringState = {
-    "events": Events().to_msg(),
-    "faceDetected": True,
-    "isDistracted": False,
-    "distractedType": 0,
-    "awarenessStatus": 1.0,
-    "posePitchOffset": 0.0,
-    "posePitchValidCount": 0,
-    "poseYawOffset": 0.0,
-    "poseYawValidCount": 0,
-    "stepChange": 0.0,
-    "awarenessActive": 1.0,
-    "awarenessPassive": 1.0,
-    "isLowStd": True,
-    "hiStdCount": 0,
-    "isActiveMode": True,
-    "isRHD": is_rhd,
-    "uncertainCount": 0,
-  }
+  dm = msg.driverMonitoringState
+
+  dm.lockout = False
+  dm.alwaysOnLockout = False
+  dm.alertLevel = AlertLevel.none
+  dm.activePolicy = MonitoringPolicy.vision
+  dm.isRHD = is_rhd
+
+  dm.visionPolicyState.faceDetected = True
+  dm.visionPolicyState.isDistracted = False
+  dm.visionPolicyState.awarenessPercent = 100
+  dm.visionPolicyState.uncertainOffroadAlertPercent = 0
+
+  dm.wheeltouchPolicyState.awarenessPercent = 100
+  dm.wheeltouchPolicyState.driverInteracting = False
   return msg
 
 
 def dmonitoringd_thread():
-  config_realtime_process([0, 1, 2, 3], 5)
+  config_realtime_process(0, 5)
 
   params = Params()
-  # Clear lockout from a previous drive with real DM enabled.
   if params.get_bool("DriverTooDistracted"):
     params.put_bool("DriverTooDistracted", False)
 

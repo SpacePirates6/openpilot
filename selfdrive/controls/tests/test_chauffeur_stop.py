@@ -1,7 +1,7 @@
 import pytest
 
 from openpilot.common.constants import CV
-from openpilot.selfdrive.controls.lib.chauffeur_learned import detect_rollback
+from openpilot.selfdrive.controls.lib.chauffeur_helpers import detect_rollback
 from openpilot.selfdrive.controls.lib.chauffeur_stop import (
   CHAUFFEUR_MAX_SPEED,
   apply_chauffeur_stop,

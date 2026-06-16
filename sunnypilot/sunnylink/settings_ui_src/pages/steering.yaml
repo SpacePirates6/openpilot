@@ -216,6 +216,19 @@ sections:
         label: v0.0
       enablement:
       - $ref: '#/macros/offroad'
+- id: lane_position
+  title: Lane Position
+  description: Fine-tune where the car sits within the lane
+  items:
+  - key: CameraOffset
+    widget: option
+    title: Lane Position Offset
+    description: Shift the driving line within the lane. Positive moves left; negative moves right. If you sit too close to
+      the yellow line, try about -0.15 m (~6 in / half a foot).
+    min: -0.35
+    max: 0.35
+    step: 0.01
+    unit: meters
 - id: lane_change
   title: Lane Change
   description: Automatic lane change timing and behavior

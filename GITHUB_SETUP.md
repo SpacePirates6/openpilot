@@ -67,6 +67,6 @@ branch = chauffeur-stop
 ## Sunnylink toggles
 
 - `ChauffeurStopEnabled`
-- `ChauffeurStopLearningEnabled`
+- `GasOverrideSmoothEnabled`
 
 Both appear under **Cruise** after install.

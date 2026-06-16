@@ -1,7 +1,7 @@
 import numpy as np
 from cereal import car
 from openpilot.common.realtime import DT_CTRL
-from openpilot.selfdrive.controls.lib.chauffeur_learned import detect_rollback
+from openpilot.selfdrive.controls.lib.chauffeur_helpers import detect_rollback
 from openpilot.selfdrive.controls.lib.chauffeur_stop import (
   apply_chauffeur_stop,
   in_chauffeur_zone,

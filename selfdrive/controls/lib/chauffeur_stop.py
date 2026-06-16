@@ -1,16 +1,12 @@
-import time
-
 import numpy as np
 
 from openpilot.common.params import Params, UnknownKeyName
 from openpilot.common.realtime import DT_CTRL
-from openpilot.selfdrive.controls.lib.chauffeur_learned import (
+from openpilot.selfdrive.controls.lib.chauffeur_helpers import (
   CHAUFFEUR_MAX_SPEED,
   detect_rollback,
   hill_hold_offset,
   in_chauffeur_zone,
-  learned_offsets_for_grade,
-  load_store,
 )
 
 DECEL_AT_STOP = -0.12
@@ -25,9 +21,6 @@ STEEP_DOWNHILL_HILL = -0.25
 ROLLBACK_BRAKE_ACCEL = -2.5
 
 _params: Params | None = None
-_learned_store = None
-_learned_store_ts = 0.0
-LEARNED_STORE_TTL = 2.0
 
 
 def is_chauffeur_stop_enabled() -> bool:
@@ -40,37 +33,22 @@ def is_chauffeur_stop_enabled() -> bool:
     return False
 
 
-def _get_learned_store():
-  global _learned_store, _learned_store_ts
-  now = time.monotonic()
-  if _learned_store is None or (now - _learned_store_ts) > LEARNED_STORE_TTL:
-    _learned_store = load_store(_params)
-    _learned_store_ts = now
-  return _learned_store
-
-
-def invalidate_learned_cache() -> None:
-  global _learned_store_ts
-  _learned_store_ts = 0.0
-
-
 def rollback_brake_accel(stop_accel: float, accel_min: float) -> float:
   return float(min(stop_accel, accel_min, ROLLBACK_BRAKE_ACCEL))
 
 
 def compute_chauffeur_decel_target(v_ego: float, a_ego: float, pitch: float = 0.0, roll: float = 0.0) -> float:
+  del roll  # reserved for future cross-slope tuning
   hill = hill_hold_offset(pitch)
-  decel_offset, _, taper_offset = learned_offsets_for_grade(_get_learned_store(), pitch, roll)
 
-  decel_at_stop = float(np.clip(DECEL_AT_STOP + hill + decel_offset, MAX_DOWNHILL_DECEL, MAX_UPHILL_HOLD_ACCEL))
-  decel_at_threshold = float(np.clip(DECEL_AT_THRESHOLD + hill + decel_offset, MAX_DOWNHILL_DECEL, 0.0))
+  decel_at_stop = float(np.clip(DECEL_AT_STOP + hill, MAX_DOWNHILL_DECEL, MAX_UPHILL_HOLD_ACCEL))
+  decel_at_threshold = float(np.clip(DECEL_AT_THRESHOLD + hill, MAX_DOWNHILL_DECEL, 0.0))
 
   if v_ego <= 0.0:
     return decel_at_stop
 
   speed_ratio = min(v_ego / CHAUFFEUR_MAX_SPEED, 1.0)
-  taper_power = float(np.clip(2.0 + taper_offset, 1.2, 3.0))
-  taper = speed_ratio ** taper_power
+  taper = speed_ratio ** 2.0
   target = decel_at_stop + taper * (decel_at_threshold - decel_at_stop)
 
   # Ease off early on flat/mild grades; keep more brake loaded on downhill.
@@ -103,8 +81,7 @@ def apply_chauffeur_stop(output_accel: float,
   target = compute_chauffeur_decel_target(v_ego, a_ego, pitch, roll)
   capped = max(output_accel, target)
 
-  _, jerk_offset, _ = learned_offsets_for_grade(_get_learned_store(), pitch, roll)
   hill = hill_hold_offset(pitch)
-  jerk = (CHAUFFEUR_JERK + jerk_offset) * (1.5 if hill < STEEP_DOWNHILL_HILL else 1.0)
+  jerk = CHAUFFEUR_JERK * (1.5 if hill < STEEP_DOWNHILL_HILL else 1.0)
   max_delta = max(jerk * dt, DT_CTRL)
   return float(np.clip(capped, prev_output_accel - max_delta, prev_output_accel + max_delta))

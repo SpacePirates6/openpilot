@@ -18,6 +18,7 @@ from openpilot.selfdrive.car.car_specific import CarSpecificEvents, BRAKE_ENGAGE
 from openpilot.selfdrive.locationd.helpers import PoseCalibrator, Pose
 from openpilot.selfdrive.selfdrived.events import Events, ET
 from openpilot.selfdrive.selfdrived.helpers import ExcessiveActuationCheck
+from openpilot.selfdrive.selfdrived.process_health import IGNORED_PROCESSES, ONROAD_PROCESS_GRACE_SEC
 from openpilot.selfdrive.selfdrived.state import StateMachine
 from openpilot.selfdrive.selfdrived.alertmanager import AlertManager, set_offroad_alert
 
@@ -91,7 +92,8 @@ class SelfdriveD(CruiseHelper):
     # TODO: de-couple selfdrived with card/conflate on carState without introducing controls mismatches
     self.car_state_sock = messaging.sub_sock('carState', timeout=20)
 
-    ignore = self.sensor_packets + self.gps_packets + ['alertDebug', 'lateralManeuverPlan'] + ['modelDataV2SP']
+    ignore = self.sensor_packets + self.gps_packets + ['alertDebug', 'lateralManeuverPlan', 'modelDataV2SP',
+                                                         'driverMonitoringState']
     if SIMULATION:
       ignore += ['driverCameraState', 'managerState']
     if REPLAY:
@@ -134,6 +136,7 @@ class SelfdriveD(CruiseHelper):
     self.events_prev = []
     self.logged_comm_issue = None
     self.not_running_prev = None
+    self.onroad_started_mono = None
     self.experimental_mode = False
     self.personality = get_sanitize_int_param(
       "LongitudinalPersonality",
@@ -148,7 +151,7 @@ class SelfdriveD(CruiseHelper):
     self.rk = Ratekeeper(100, print_delay_threshold=None)
 
     # Optional processes — must not block engagement if they crash (e.g. before params rebuild).
-    self.ignored_processes = {'mapd', 'chauffeur_learnedd'}
+    self.ignored_processes = set(IGNORED_PROCESSES)
 
     # Determine startup event
     is_remote = build_metadata.openpilot.comma_remote or build_metadata.openpilot.sunnypilot_remote
@@ -222,7 +225,7 @@ class SelfdriveD(CruiseHelper):
       self.events.add(EventName.resumeBlocked)
 
     # Handle DM
-    if not self.CP.notCar:
+    if not self.CP.notCar and self.sm.valid['driverMonitoringState']:
       # Block engaging until ignition cycle after max number or time of distractions
       if self.sm['driverMonitoringState'].lockout and not self.dm_lockout_set:
         self.params.put_bool("DriverTooDistracted", True)
@@ -370,7 +373,16 @@ class SelfdriveD(CruiseHelper):
       if not_running != self.not_running_prev:
         cloudlog.event("process_not_running", not_running=not_running, error=True)
       self.not_running_prev = not_running
-    if self.sm.recv_frame['managerState'] and (not_running - self.ignored_processes):
+
+    started = self.sm['deviceState'].started
+    if started and self.onroad_started_mono is None:
+      self.onroad_started_mono = time.monotonic()
+    elif not started:
+      self.onroad_started_mono = None
+
+    onroad_grace = (self.onroad_started_mono is not None and
+                    (time.monotonic() - self.onroad_started_mono) < ONROAD_PROCESS_GRACE_SEC)
+    if self.sm.recv_frame['managerState'] and (not_running - self.ignored_processes) and not onroad_grace:
       self.events.add(EventName.processNotRunning)
     else:
       if not SIMULATION and not self.rk.lagging:
