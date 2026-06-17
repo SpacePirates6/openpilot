@@ -1,72 +1,49 @@
-# GitHub setup — Chauffeur Stop
+# GitHub setup — Chauffeur Stop / CSR
 
-Local branch **`chauffeur-stop`** is committed and ready to push.
+Two openpilot branches:
 
-## One-time: log in to GitHub CLI
-
-```powershell
-gh auth login
-```
-
-Choose: GitHub.com → HTTPS → Login with browser.
-
-## Push (automated)
-
-```powershell
-cd c:\Users\space\Desktop\comma
-.\scripts\push_chauffeur_stop_github.ps1
-```
-
-This will:
-
-1. Fork `mvl-boston/openpilot` and `mvl-boston/opendbc` under your account (if needed)
-2. Push `chauffeur-stop` to **both** repos
-
-## Manual push (if you prefer)
-
-### opendbc (Honda carcontroller changes)
-
-```powershell
-cd opendbc_repo
-git remote add fork https://github.com/SpacePirates6/opendbc.git
-git push -u fork chauffeur-stop
-```
-
-### openpilot (main chauffeur stop + learner)
-
-```powershell
-cd c:\Users\space\Desktop\comma
-git remote add fork https://github.com/SpacePirates6/openpilot.git
-git push -u fork chauffeur-stop
-```
+| Branch | Purpose |
+|--------|---------|
+| `chauffeur-stop` | Original Chauffeur Stop fork (pre-comma backport) |
+| `csr` | Chauffeur Stop + comma + sunnypilot backport (use this) |
 
 ## Install on Comma device
 
-After push, on the device choose **Custom Software**:
+Custom Software:
 
 ```
-SpacePirates6/openpilot/chauffeur-stop
+SpacePirates6/openpilot/csr
 ```
 
-Requires alpha longitudinal + Honda Bosch for full brake shaping (opendbc submodule must resolve to your opendbc fork commit).
+Requires alpha longitudinal for full Chauffeur Stop brake shaping on Honda. Gas Override Smoothing needs a Comma Pedal / gas interceptor.
 
-## Submodule note
+## Submodule
 
-The openpilot commit pins `opendbc_repo` to commit `16841bf` on branch `chauffeur-stop`. For a public clone to build, either:
+`opendbc_repo` must resolve to your fork at commit `e4baa27` (branch `chauffeur-stop` on `SpacePirates6/opendbc`). That commit includes Chauffeur Stop + gas override smoothing in the Honda carcontroller and the Ridgeline park/reverse TCM fault fix.
 
-- Push opendbc to your fork (script does this), and ensure `.gitmodules` URL matches your fork, **or**
-- Keep using `mvl-boston/opendbc` only if that commit is merged upstream (it is not today).
-
-To point clones at your opendbc fork permanently, edit `.gitmodules`:
+`.gitmodules` already points at:
 
 ```
-url = https://github.com/SpacePirates6/opendbc
+https://github.com/SpacePirates6/opendbc
 branch = chauffeur-stop
 ```
 
-## Sunnylink toggles
+After cloning:
 
-- `ChauffeurStopEnabled`
-- `GasOverrideSmoothEnabled`
+```powershell
+git submodule update --init --recursive opendbc_repo
+```
 
-Both appear under **Cruise** after install.
+## Push script
+
+Requires GitHub CLI (`gh auth login`):
+
+```powershell
+cd "c:\Users\space\Downloads\comma fix"
+.\scripts\push_chauffeur_stop_github.ps1
+```
+
+## Sunnylink toggles (Cruise)
+
+- `ChauffeurStopEnabled` — soft stop below 2 mph with hill compensation
+- `GasOverrideSmoothEnabled` — smooth handoff after gas-pedal override

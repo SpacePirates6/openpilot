@@ -9,6 +9,16 @@ from openpilot.selfdrive.controls.lib.chauffeur_helpers import (
   in_chauffeur_zone,
 )
 
+# Re-exported for opendbc Honda carcontroller imports.
+__all__ = (
+  "CHAUFFEUR_MAX_SPEED",
+  "apply_chauffeur_stop",
+  "compute_chauffeur_decel_target",
+  "in_chauffeur_zone",
+  "is_chauffeur_stop_enabled",
+  "rollback_brake_accel",
+)
+
 DECEL_AT_STOP = -0.12
 DECEL_AT_THRESHOLD = -1.0
 CHAUFFEUR_JERK = 2.0
